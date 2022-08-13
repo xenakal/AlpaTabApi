@@ -1,0 +1,6 @@
+*.csproj
+*.git
+.vs/*
+*.user
+bin/
+obj/
