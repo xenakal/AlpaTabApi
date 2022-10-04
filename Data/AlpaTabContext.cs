@@ -17,7 +17,7 @@ namespace AlpaTabApi.Data
         {
             builder.Entity<AlpaTabUser>().ToTable(nameof(AlpaTabUser));
             builder.Entity<AlpaTabTransaction>().ToTable(nameof(AlpaTabTransaction));
-            builder.Entity<AlpaTabTransaction>(t => {t.HasKey(e => e.TransactionId);});
+            builder.Entity<AlpaTabTransaction>(t => {t.HasKey(e => e.Id);});
         }
     }
 }

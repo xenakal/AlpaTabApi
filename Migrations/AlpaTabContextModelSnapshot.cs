@@ -24,11 +24,11 @@ namespace AlpaTabApi.Migrations
 
             modelBuilder.Entity("AlpaTabApi.Models.AlpaTabTransaction", b =>
                 {
-                    b.Property<int>("TransactionId")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("TransactionId"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
 
                     b.Property<double>("Amount")
                         .HasColumnType("float");
@@ -50,18 +50,18 @@ namespace AlpaTabApi.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.HasKey("TransactionId");
+                    b.HasKey("Id");
 
                     b.ToTable("AlpaTabTransaction", (string)null);
                 });
 
             modelBuilder.Entity("AlpaTabApi.Models.AlpaTabUser", b =>
                 {
-                    b.Property<int>("UserID")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserID"), 1L, 1);
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"), 1L, 1);
 
                     b.Property<double>("Balance")
                         .HasColumnType("float");
@@ -79,13 +79,10 @@ namespace AlpaTabApi.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("Password")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<int>("UserType")
                         .HasColumnType("int");
 
-                    b.HasKey("UserID");
+                    b.HasKey("Id");
 
                     b.ToTable("AlpaTabUser", (string)null);
                 });

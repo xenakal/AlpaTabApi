@@ -1,10 +1,32 @@
 using AlpaTabApi.Data;
 using AlpaTabApi.Models;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 
 var AllowedOrigins = "_allowedOrigins";
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+     .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, c =>
+     {
+         c.Authority = $"https://{builder.Configuration["Auth0:Domain"]}";
+         c.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+         {
+             ValidAudience = builder.Configuration["Auth0:Audience"],
+             ValidIssuer = $"{builder.Configuration["Auth0:Domain"]}"
+         };
+     });
+builder.Services.AddAuthorization(o =>
+{
+    o.AddPolicy("CanViewAllUsers", p => p.
+        RequireAuthenticatedUser().
+        RequireClaim("scope", "read:any_user"));
+});
+
 
 builder.Services.AddCors(options =>
 {
@@ -12,101 +34,70 @@ builder.Services.AddCors(options =>
                       policy =>
                       {
                           //policy.WithOrigins("http://192.168.1.174:3000").AllowAnyMethod().AllowAnyHeader();
-                          policy.WithOrigins("*").AllowAnyMethod().AllowAnyHeader();
+                          policy.WithOrigins(builder.Configuration["AllowedHosts"]).AllowAnyMethod().AllowAnyHeader();
                       });
 });
 
 builder.Services.AddDbContext<AlpaTabContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
 );
+builder.Services.AddScoped<IAlpaTabDataReporitory, AlpaTabDataRepository>();
+builder.Services.AddTransient<TestDataSeeder>();
+
 
 var app = builder.Build();
+
+if (args.Length == 1 && args[0].ToLower() == "seeddata")
+    SeedData(app);
+
+static void SeedData(IHost app)
+{
+    var scopedFactory = app.Services.GetService<IServiceScopeFactory>();
+
+    using (var scope = scopedFactory.CreateScope())
+    {
+        var service = scope.ServiceProvider.GetService<TestDataSeeder>();
+        service.SeedData();
+    }
+}
+
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.UseCors(AllowedOrigins);
 app.UseHttpsRedirection();
 
-app.MapGet("/", () => { return "Welcome to the AlpaTab api!"; });
+app.MapGet("/", () => { return "Welcome to the AlpaTab api!!"; });
 
-app.MapGet("/users", async (AlpaTabContext context) => await context.AlpaTabUsers.Select(user => new AlpaTabUserDTO(user)).ToListAsync());
+app.MapGet("/users", async (IAlpaTabDataReporitory reporitory) => await reporitory.GetAllUsers());
+    //.RequireAuthorization("CanViewAllUsers");
 
-app.MapGet("/users/{id}", async (AlpaTabContext context, int id) =>
-    await context.AlpaTabUsers.FindAsync(id) is AlpaTabUser user ? Results.Ok(new AlpaTabUserDTO(user)) : Results.NotFound($"User not found: {id}"));
+app.MapGet("/users/{id}", async (IAlpaTabDataReporitory reporitory, int id) => await reporitory.GetUserById(id));
 
-app.MapPost("/users", async (AlpaTabContext context, AlpaTabUser user) =>
-{
-    context.AlpaTabUsers.Add(user);
-    await context.SaveChangesAsync();
-    return Results.Ok(new AlpaTabUserDTO(user));
-});
+app.MapPost("/users", async (IAlpaTabDataReporitory repository, AlpaTabUser user) => await repository.CreateUser(user));
 
-app.MapPut("/users/{id}", async (AlpaTabContext context, AlpaTabUser user, int id) =>
-{
-    AlpaTabUser existingUsr = await context.AlpaTabUsers.FindAsync(id);
-    if (existingUsr == null) return Results.NotFound($"User not found: {id}");
+app.MapPut("/users/{id}", async (IAlpaTabDataReporitory repository, AlpaTabUser user, int id) => await repository.ModifyUser(id, user));
 
-    existingUsr.FirstName = user.FirstName;
-    existingUsr.LastName = user.LastName;
-    existingUsr.UserType = user.UserType;
-    existingUsr.Password = user.Password; // TODO: add some kind of constraint on that
-    existingUsr.NickName = user.NickName;
-    existingUsr.Email = user.Email;
-    await context.SaveChangesAsync();
+app.MapDelete("/users/{id}", async (IAlpaTabDataReporitory repository, int id) => await repository.DeleteUser(id));
 
-    return Results.Ok(new AlpaTabUserDTO(user));
-});
+app.MapGet("/transactions", async (IAlpaTabDataReporitory reporitory) => await reporitory.GetAllTransactions());
+    //.RequireAuthorization("CanViewAllUsers");
 
-app.MapDelete("/users/{id}", async (AlpaTabContext context, int id) =>
-{
-    AlpaTabUser userToRemove = await context.AlpaTabUsers.FindAsync(id);
-    if (userToRemove == null) return Results.NotFound($"User not found: {id}");
+app.MapGet("/transactions/{id}", async (IAlpaTabDataReporitory reporitory, int id) => await reporitory.GetUserById(id));
 
-    context.AlpaTabUsers.Remove(userToRemove);
-    await context.SaveChangesAsync();
-    return Results.Ok(new AlpaTabUserDTO(userToRemove));
-});
+app.MapPost("/transactions", async (IAlpaTabDataReporitory repository, AlpaTabTransaction transaction) => await repository.CreateTransaction(transaction));
 
+app.MapPut("/transactions/{id}", async (IAlpaTabDataReporitory repository, AlpaTabTransaction transaction, int id) => await repository.ModifyTransaction(id, transaction));
 
-app.MapGet("/transactions", async (AlpaTabContext context) => await context.TransactionsList.ToListAsync());
+app.MapDelete("/transactions/{id}", async (IAlpaTabDataReporitory repository, int id) => await repository.DeleteTransaction(id));
 
-app.MapGet("/transactions/{id}", async (AlpaTabContext context, int id) =>
-    await context.TransactionsList.FindAsync(id) is AlpaTabTransaction t ? Results.Ok(t) : Results.NotFound($"Transaction not found: {id}"));
+app.MapGet("/transactions/user/{nickname}", async (IAlpaTabDataReporitory repository, string nickName) => await repository.GetUserTransactions(nickName));
 
-app.MapGet("/transactions/{nickname}", async (AlpaTabContext context, string nickName) =>
-{
-    IList<AlpaTabTransaction> transactions = await context.TransactionsList.Where(_ => _.NickName == nickName).ToListAsync();
-    return Results.Ok(transactions);
-});
-
-app.MapPost("/transactions", async (AlpaTabContext context, AlpaTabTransaction t) =>
-{
-    context.TransactionsList.Add(t);
-    await context.SaveChangesAsync();
-    return Results.Ok(t);
-});
-
-app.MapPut("/transactions/{id}", async (AlpaTabContext context, AlpaTabTransaction t, int id) =>
-{
-    AlpaTabTransaction existingT = await context.TransactionsList.FindAsync(id);
-    if (existingT == null) return Results.NotFound($"Transaction not found: {id}");
-
-    existingT.NickName = t.NickName;
-    existingT.Amount = t.Amount;
-    existingT.TransactionType = t.TransactionType;
-    existingT.Timestamp = t.Timestamp;
-    existingT.Description = t.Description;
-    await context.SaveChangesAsync();
-
-    return Results.Ok(existingT);
-});
-
-app.MapDelete("/transactions/{id}", async (AlpaTabContext context, int id) =>
-{
-    AlpaTabTransaction tToRemove = await context.TransactionsList.FindAsync(id);
-    if (tToRemove == null) return Results.NotFound($"Transaction not found: {id}");
-
-    context.TransactionsList.Remove(tToRemove);
-    await context.SaveChangesAsync();
-    return Results.Ok(tToRemove);
-});
 
 app.Run();
