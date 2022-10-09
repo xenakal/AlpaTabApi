@@ -1,10 +1,11 @@
 using AlpaTabApi.Data;
+using AlpaTabApi.Endpoints;
 using AlpaTabApi.Models;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 var AllowedOrigins = "_allowedOrigins";
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddEndpointsApiExplorer();
@@ -27,7 +28,6 @@ builder.Services.AddAuthorization(o =>
         RequireClaim("scope", "read:any_user"));
 });
 
-
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: AllowedOrigins,
@@ -38,66 +38,43 @@ builder.Services.AddCors(options =>
                       });
 });
 
-builder.Services.AddDbContext<AlpaTabContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
-);
-builder.Services.AddScoped<IAlpaTabDataReporitory, AlpaTabDataRepository>();
-builder.Services.AddTransient<TestDataSeeder>();
+//public static readonly ILoggerFactory AlpaTabLoggerFactory
+//    = LoggerFactory.Create(builder => { builder.AddConsole(); });
 
+//var sqlConBuilder = new SqlConnectionStringBuilder();
+//sqlConBuilder.ConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+//sqlConBuilder.UserID = builder.Configuration["UserID"];
+//sqlConBuilder.Password = builder.Configuration["Password"];
+
+builder.Services.AddDbContext<AlpaTabContext>(options =>
+    options
+        .UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection"))
+        //.UseSqlServer(builder.Configuration.GetConnectionString(sqlConBuilder.ConnectionString))
+        //.UseLoggerFactory(AlpaTabLoggerFactory)
+); 
+builder.Services.AddScoped<IAlpaTabDataReporitory, AlpaTabDataRepository>(); 
+builder.Services.AddTransient<TestDataSeeder>();
+builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies()); 
 
 var app = builder.Build();
-
-if (args.Length == 1 && args[0].ToLower() == "seeddata")
-    SeedData(app);
-
-static void SeedData(IHost app)
-{
-    var scopedFactory = app.Services.GetService<IServiceScopeFactory>();
-
-    using (var scope = scopedFactory.CreateScope())
-    {
-        var service = scope.ServiceProvider.GetService<TestDataSeeder>();
-        service.SeedData();
-    }
-}
 
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    if (args.Contains("seeddata"))
+        app.SeedTestData();
 }
 
 app.UseAuthentication();
 app.UseAuthorization();
-
 app.UseCors(AllowedOrigins);
 app.UseHttpsRedirection();
 
-app.MapGet("/", () => { return "Welcome to the AlpaTab api!!"; });
-
-app.MapGet("/users", async (IAlpaTabDataReporitory reporitory) => await reporitory.GetAllUsers());
-    //.RequireAuthorization("CanViewAllUsers");
-
-app.MapGet("/users/{id}", async (IAlpaTabDataReporitory reporitory, int id) => await reporitory.GetUserById(id));
-
-app.MapPost("/users", async (IAlpaTabDataReporitory repository, AlpaTabUser user) => await repository.CreateUser(user));
-
-app.MapPut("/users/{id}", async (IAlpaTabDataReporitory repository, AlpaTabUser user, int id) => await repository.ModifyUser(id, user));
-
-app.MapDelete("/users/{id}", async (IAlpaTabDataReporitory repository, int id) => await repository.DeleteUser(id));
-
-app.MapGet("/transactions", async (IAlpaTabDataReporitory reporitory) => await reporitory.GetAllTransactions());
-    //.RequireAuthorization("CanViewAllUsers");
-
-app.MapGet("/transactions/{id}", async (IAlpaTabDataReporitory reporitory, int id) => await reporitory.GetUserById(id));
-
-app.MapPost("/transactions", async (IAlpaTabDataReporitory repository, AlpaTabTransaction transaction) => await repository.CreateTransaction(transaction));
-
-app.MapPut("/transactions/{id}", async (IAlpaTabDataReporitory repository, AlpaTabTransaction transaction, int id) => await repository.ModifyTransaction(id, transaction));
-
-app.MapDelete("/transactions/{id}", async (IAlpaTabDataReporitory repository, int id) => await repository.DeleteTransaction(id));
-
-app.MapGet("/transactions/user/{nickname}", async (IAlpaTabDataReporitory repository, string nickName) => await repository.GetUserTransactions(nickName));
-
+app.MapGet("/", () => { return AlpaTabApi.Helpers.Constants.WELCOME_API; });
+app.MapAlpaTabUsersEndpoints();
+app.MapAlpaTabTransactionsEndpoints();
 
 app.Run();
+

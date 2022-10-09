@@ -33,9 +33,6 @@ namespace AlpaTabApi.Migrations
                     b.Property<double>("Amount")
                         .HasColumnType("float");
 
-                    b.Property<double>("BalanceBeforeTransaction")
-                        .HasColumnType("float");
-
                     b.Property<string>("Description")
                         .HasColumnType("nvarchar(max)");
 
