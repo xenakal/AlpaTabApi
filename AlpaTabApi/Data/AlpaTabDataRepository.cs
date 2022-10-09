@@ -1,24 +1,20 @@
 ﻿using AlpaTabApi.Models;
-using AlpaTabApi.Dtos;
 using Microsoft.EntityFrameworkCore;
-using AutoMapper;
+using AlpaTabApi.Exceptions;
 
 namespace AlpaTabApi.Data;
 
 public class AlpaTabDataRepository : IAlpaTabDataReporitory
 {
     private readonly AlpaTabContext _context;
-    private readonly IMapper _mapper;
 
-    public AlpaTabDataRepository(AlpaTabContext context, IMapper mapper)
+    public AlpaTabDataRepository(AlpaTabContext context)
     {
         _context = context;
-        _mapper = mapper;
     }
 
-    public async Task<IResult> CreateUser(UserWriteDto user)
+    public async Task<AlpaTabUser> CreateUser(AlpaTabUser newUser)
     {
-        AlpaTabUser newUser = _mapper.Map<AlpaTabUser>(user);
         _context.AlpaTabUsers.Add(newUser);
         try
         {
@@ -26,39 +22,58 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         }
         catch (Exception e)
         {
-            return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-        return Results.Created($"users/{user.NickName}", _mapper.Map<UserReadDto>(newUser)); 
+        return newUser;
     }
 
-    public async Task<IResult> GetAllUsers()
+    public async Task<IEnumerable<AlpaTabUser>> GetAllUsers()
     {
-        IEnumerable<AlpaTabUser> users = await _context.AlpaTabUsers.ToListAsync(); // can I/should I avoid enumeration here? 
-        return Results.Ok(_mapper.Map<IEnumerable<UserReadDto>>(users));
+        IEnumerable<AlpaTabUser> users;
+        try
+        {
+            users = await _context.AlpaTabUsers.ToListAsync(); // can I/should I avoid enumeration here? 
+        }
+        catch (Exception e)
+        {
+            throw new DbExceptionWrapper(e.Message, e);
+        }
+        return users;
     }
 
-    public async Task<IResult> GetUserByNickname(string nickname)
+    public async Task<AlpaTabUser> GetUserByNickname(string nickname)
     {
-        AlpaTabUser user = await _context.AlpaTabUsers.SingleOrDefaultAsync(_ => _.NickName == nickname);
-        if (user == default)
-            return Results.NotFound(IResultMessages.UserNotFound(nickname));
-        return Results.Ok(_mapper.Map<UserReadDto>(user));
+        AlpaTabUser user;
+        try
+        {
+            user = await _context.AlpaTabUsers.SingleOrDefaultAsync(_ => _.NickName == nickname);
+        }
+        catch (Exception e)
+        {
+            throw new DbExceptionWrapper(e.Message, e);
+        }
+        return user is default(AlpaTabUser) ? null : user;
     }
 
-    public async Task<IResult> GetUserById(int id) 
+    public async Task<AlpaTabUser> GetUserById(int id) 
     {
-        //if (await _context.AlpaTabUsers.FindAsync(id) is AlpaTabUser user) BENCHMARK TO COMPARE
-        var user = await _context.AlpaTabUsers.FindAsync(id);
-        if (user == null)
-            return Results.NotFound(IResultMessages.UserNotFound(id));
-        return Results.Ok(_mapper.Map<UserReadDto>(user));
+        AlpaTabUser user;
+        try
+        {
+            user = await _context.AlpaTabUsers.SingleOrDefaultAsync(_ => _.Id == id);
+        }
+        catch (Exception e)
+        {
+            throw new DbExceptionWrapper(e.Message, e);
+        }
+        return user is default(AlpaTabUser) ? null : user;
     }
 
-    public async Task<IResult> DeleteUser(int id)
+    public async Task<AlpaTabUser> DeleteUser(int id)
     {
         AlpaTabUser userToRemove = await _context.AlpaTabUsers.FindAsync(id);
-        if (userToRemove == null) 
-            return Results.NotFound(IResultMessages.UserNotFound(id));
+        if (userToRemove == null)
+            return null;
 
         _context.AlpaTabUsers.Remove(userToRemove);
 
@@ -68,16 +83,16 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         }
         catch (Exception e)
         {
-            return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-        return Results.Ok(_mapper.Map<UserReadDto>(userToRemove));
+        return userToRemove;
     }
 
-    public async Task<IResult> ModifyUser(int id, UserWriteDto user)
+    public async Task<AlpaTabUser> ModifyUser(int id, AlpaTabUser user)
     {
         AlpaTabUser existingUsr = await _context.AlpaTabUsers.FindAsync(id);
-        if (existingUsr == null) 
-            return Results.NotFound(IResultMessages.UserNotFound(id));
+        if (existingUsr == null)
+            return null;
 
         existingUsr.FirstName = user.FirstName ?? existingUsr.FirstName;
         existingUsr.LastName = user.LastName ?? existingUsr.LastName;
@@ -91,15 +106,13 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         }
         catch (Exception e)
         {
-            return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-
-        return Results.Ok(_mapper.Map<UserReadDto>(existingUsr));
+        return existingUsr;
     }
 
-    public async Task<IResult> CreateTransaction(TransactionWriteDto transaction)
+    public async Task<AlpaTabTransaction> CreateTransaction(AlpaTabTransaction newTransaction)
     {
-        AlpaTabTransaction newTransaction = _mapper.Map<AlpaTabTransaction>(transaction);
         _context.TransactionsList.Add(newTransaction);
         try
         {
@@ -107,16 +120,16 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         }
         catch (Exception e)
         {
-            return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-        return Results.Ok(_mapper.Map<TransactionReadDto>(newTransaction)); 
+        return newTransaction;
     }
 
-    public async Task<IResult> DeleteTransaction(int id)
+    public async Task<AlpaTabTransaction> DeleteTransaction(int id)
     {
         AlpaTabTransaction transactionToRemove = await _context.TransactionsList.FindAsync(id);
         if (transactionToRemove == null) 
-            return Results.NotFound(IResultMessages.UserNotFound(id));
+            return null;
 
         _context.TransactionsList.Remove(transactionToRemove);
 
@@ -126,29 +139,42 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         }
         catch (Exception e)
         {
-            return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-        return Results.Ok(_mapper.Map<TransactionReadDto>(transactionToRemove));
+        return transactionToRemove;
     }
 
     public async Task<IEnumerable<AlpaTabTransaction>> GetAllTransactions()
     {
-        return await _context.TransactionsList.ToListAsync(); 
+        try
+        {
+            return await _context.TransactionsList.ToListAsync(); 
+        }
+        catch (Exception e)
+        {
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
+        }
     }
 
-    public async Task<IResult> GetTransactionById(int id)
+    public async Task<AlpaTabTransaction> GetTransactionById(int id)
     {
-        AlpaTabTransaction transaction = await _context.TransactionsList.FindAsync(id);
-        if (transaction == null)
-            return Results.NotFound(IResultMessages.TransactionNotFound(id));
-        return Results.Ok(_mapper.Map<TransactionReadDto>(transaction));
+        AlpaTabTransaction transaction;
+        try
+        {
+            transaction = await _context.TransactionsList.SingleOrDefaultAsync(_ => _.Id == id);
+        }
+        catch (Exception e)
+        {
+            throw new DbExceptionWrapper(e.Message, e);
+        }
+        return transaction is default(AlpaTabTransaction) ? null : transaction;
     }
 
-    public async Task<IResult> ModifyTransaction(int id, TransactionWriteDto transaction)
+    public async Task<AlpaTabTransaction> ModifyTransaction(int id, AlpaTabTransaction transaction)
     {
         AlpaTabTransaction existingTransaction = await _context.TransactionsList.FindAsync(id);
         if (existingTransaction == null)
-            return Results.NotFound(IResultMessages.TransactionNotFound(id));
+            return null;
 
         existingTransaction.Amount = transaction.Amount; 
         existingTransaction.NickName = transaction.NickName ?? existingTransaction.NickName;
@@ -162,16 +188,28 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         }
         catch (Exception e)
         {
-            return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-        return Results.Ok(_mapper.Map<TransactionReadDto>(transaction));
+        return transaction;
     }
 
     // Refactor this with specification pattern to avoid this file getting complicated 
-    public async Task<IResult> GetUserTransactions(string nickName)
+    public async Task<IEnumerable<AlpaTabTransaction>> GetUserTransactions(string nickName)
     {
-        var transactions = await _context.TransactionsList.Where(_ => _.NickName == nickName).ToListAsync<AlpaTabTransaction>();
-        return Results.Ok(_mapper.Map<TransactionReadDto>(transactions));
+        AlpaTabUser user = await _context.AlpaTabUsers.SingleOrDefaultAsync(_ => _.NickName == nickName);
+        if (user is default(AlpaTabUser))
+            return null;
+
+        IEnumerable<AlpaTabTransaction> transactions;
+        try
+        {
+            transactions = await _context.TransactionsList.Where(_ => _.NickName == nickName).ToListAsync<AlpaTabTransaction>();
+        }
+        catch (Exception e)
+        {
+            throw new DbExceptionWrapper(e.Message, e);
+        }
+        return transactions;
     }
 
 }

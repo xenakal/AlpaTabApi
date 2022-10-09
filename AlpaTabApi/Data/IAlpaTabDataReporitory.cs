@@ -1,20 +1,19 @@
 ﻿using AlpaTabApi.Models;
-using AlpaTabApi.Dtos;
 
 namespace AlpaTabApi.Data;
 
 public interface IAlpaTabDataReporitory
 {
-    Task<IResult> CreateUser(UserWriteDto user);
-    Task<IResult> GetAllUsers();
-    Task<IResult> GetUserById(int id);
-    Task<IResult> GetUserByNickname(string nickname);
-    Task<IResult> ModifyUser(int id, UserWriteDto user);
-    Task<IResult> DeleteUser(int id);
-    Task<IResult> CreateTransaction(TransactionWriteDto user);
+    Task<AlpaTabUser> CreateUser(AlpaTabUser user);
+    Task<IEnumerable<AlpaTabUser>> GetAllUsers();
+    Task<AlpaTabUser> GetUserById(int id);
+    Task<AlpaTabUser> GetUserByNickname(string nickname);
+    Task<AlpaTabUser> ModifyUser(int id, AlpaTabUser user);
+    Task<AlpaTabUser> DeleteUser(int id);
+    Task<AlpaTabTransaction> CreateTransaction(AlpaTabTransaction user);
     Task<IEnumerable<AlpaTabTransaction>> GetAllTransactions();
-    Task<IResult> GetTransactionById(int id);
-    Task<IResult> ModifyTransaction(int id, TransactionWriteDto user);
-    Task<IResult> DeleteTransaction(int id);
-    Task<IResult> GetUserTransactions(string nickName);
+    Task<AlpaTabTransaction> GetTransactionById(int id);
+    Task<AlpaTabTransaction> ModifyTransaction(int id, AlpaTabTransaction user);
+    Task<AlpaTabTransaction> DeleteTransaction(int id);
+    Task<IEnumerable<AlpaTabTransaction>> GetUserTransactions(string nickName);
 }

@@ -2,6 +2,7 @@
 using AlpaTabApi.Dtos;
 using AlpaTabApi.Models;
 using AlpaTabApi.Helpers;
+using AlpaTabApi.Exceptions;
 using AutoMapper;
 
 namespace AlpaTabApi.Endpoints
@@ -26,34 +27,92 @@ namespace AlpaTabApi.Endpoints
 
         private static async Task<IResult> GetAllTransactionsAsync(IAlpaTabDataReporitory repository, IMapper mapper)
         {
-            IEnumerable<AlpaTabTransaction> transactions = await repository.GetAllTransactions();
+            try
+            {
+                IEnumerable<AlpaTabTransaction> transactions = await repository.GetAllTransactions();
+                return Results.Ok(mapper.Map<IEnumerable<TransactionReadDto>>(transactions));
+            }
+            catch (DbExceptionWrapper e)
+            {
+                return Results.Problem(IResultMessages.DbError(e.Message));
+            }
+        }
+
+        private static async Task<IResult> GetTransactionByIdAsync(IAlpaTabDataReporitory repository, int id, IMapper mapper)
+        {
+            try
+            {
+                AlpaTabTransaction transaction = await repository.GetTransactionById(id);
+                if (transaction == null)
+                    return Results.NotFound(IResultMessages.TransactionNotFound(id));
+                return Results.Ok(mapper.Map<TransactionReadDto>(transaction));
+            }
+            catch (DbExceptionWrapper e)
+            {
+                return Results.Problem(IResultMessages.DbError(e.Message));
+            }
+        }
+
+        private static async Task<IResult> CreateTransactionAsync(IAlpaTabDataReporitory repository, IMapper mapper, TransactionWriteDto transaction)
+        {
+            try
+            {
+                AlpaTabTransaction newTransaction = await repository.CreateTransaction(mapper.Map<AlpaTabTransaction>(transaction));
+                return Results.Created($"{Constants.TRANSACTIONS_PATH}/{newTransaction.Id}", mapper.Map<UserReadDto>(newTransaction)); 
+            }
+            catch (DbExceptionWrapper e)
+            {
+                return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+            }
+        }
+
+        private static async Task<IResult> ModifyTransactionAsync(IAlpaTabDataReporitory repository, IMapper mapper, int id, TransactionWriteDto modifTransaction)
+        {
+            AlpaTabTransaction transaction;
+            try
+            {
+                transaction = await repository.ModifyTransaction(id, mapper.Map<AlpaTabTransaction>(modifTransaction));
+            }
+            catch (DbExceptionWrapper e)
+            {
+                return Results.Problem(IResultMessages.DbError(e.Message));
+            }
+            if (transaction == null)
+                return Results.NotFound(IResultMessages.TransactionNotFound(id));
+            return Results.Ok(mapper.Map<UserReadDto>(transaction));
+
+        }
+
+        private static async Task<IResult> DeleteTransactionAsync(IAlpaTabDataReporitory repository, IMapper mapper, int id)
+        {
+            AlpaTabTransaction transaction;
+            try
+            {
+                transaction = await repository.DeleteTransaction(id);
+            }
+            catch (DbExceptionWrapper e)
+            {
+                return Results.Problem(IResultMessages.DbError(e.Message));
+            }
+            if (transaction == null)
+                return Results.NotFound(IResultMessages.TransactionNotFound(id));
+            return Results.Ok(mapper.Map<TransactionReadDto>(transaction));
+        }
+
+        private static async Task<IResult> GetUserTransactionsAsync(IAlpaTabDataReporitory repository, IMapper mapper, string nickName)
+        {
+            IEnumerable<AlpaTabTransaction> transactions;
+            try
+            {
+                transactions = await repository.GetUserTransactions(nickName);
+            }
+            catch (DbExceptionWrapper e)
+            {
+                return Results.Problem(IResultMessages.DbError(e.Message));
+            }
+            if (transactions == null)
+                return Results.NotFound(IResultMessages.UserNotFound(nickName));
             return Results.Ok(mapper.Map<IEnumerable<TransactionReadDto>>(transactions));
-        }
-
-        private static async Task<IResult> GetTransactionByIdAsync(IAlpaTabDataReporitory repository, int id)
-        {
-            return await repository.GetTransactionById(id);
-        }
-
-        private static async Task<IResult> CreateTransactionAsync(IAlpaTabDataReporitory repository, TransactionWriteDto transaction)
-        {
-            return await repository.CreateTransaction(transaction);
-        }
-
-        private static async Task<IResult> ModifyTransactionAsync(IAlpaTabDataReporitory repository, int id, TransactionWriteDto transaction)
-        {
-            return await repository.ModifyTransaction(id, transaction);
-
-        }
-
-        private static async Task<IResult> DeleteTransactionAsync(IAlpaTabDataReporitory repository, int id)
-        {
-            return await repository.DeleteTransaction(id);
-        }
-
-        private static async Task<IResult> GetUserTransactionsAsync(IAlpaTabDataReporitory repository, string nickName)
-        {
-            return await repository.GetUserTransactions(nickName);
         }
     }
 }
