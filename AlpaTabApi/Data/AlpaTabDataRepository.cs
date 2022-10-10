@@ -190,7 +190,7 @@ public class AlpaTabDataRepository : IAlpaTabDataReporitory
         {
             throw new DbExceptionWrapper(IResultMessages.SaveChangesException(e.Message), e);
         }
-        return transaction;
+        return existingTransaction;
     }
 
     // Refactor this with specification pattern to avoid this file getting complicated 

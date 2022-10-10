@@ -62,7 +62,7 @@ namespace AlpaTabApi.Endpoints
             }
             catch (DbExceptionWrapper e)
             {
-                return Results.Problem(IResultMessages.UserNotFound(nickname));
+                return Results.Problem(IResultMessages.DbError(e.Message));
             }
         }
 

@@ -58,11 +58,11 @@ namespace AlpaTabApi.Endpoints
             try
             {
                 AlpaTabTransaction newTransaction = await repository.CreateTransaction(mapper.Map<AlpaTabTransaction>(transaction));
-                return Results.Created($"{Constants.TRANSACTIONS_PATH}/{newTransaction.Id}", mapper.Map<UserReadDto>(newTransaction)); 
+                return Results.Created($"{Constants.TRANSACTIONS_PATH}{newTransaction.Id}", mapper.Map<TransactionReadDto>(newTransaction));
             }
             catch (DbExceptionWrapper e)
             {
-                return Results.Problem(IResultMessages.SaveChangesException(e.Message));
+                return Results.Problem(IResultMessages.DbError(e.Message));
             }
         }
 
@@ -79,7 +79,7 @@ namespace AlpaTabApi.Endpoints
             }
             if (transaction == null)
                 return Results.NotFound(IResultMessages.TransactionNotFound(id));
-            return Results.Ok(mapper.Map<UserReadDto>(transaction));
+            return Results.Ok(mapper.Map<TransactionReadDto>(transaction));
 
         }
 

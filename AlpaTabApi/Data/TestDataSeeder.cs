@@ -45,7 +45,7 @@ namespace AlpaTabApi.Data
                 NickName = nicknames[_],
                 Amount = amounts[_],
                 TransactionType = "beers",
-                Timestamp = DateTime.Now,
+                Timestamp = DateTime.Parse("2022-10-10 02:13:53.1102898"),
             }).ToArray();
             return transactions;
         }
